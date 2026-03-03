@@ -67,18 +67,39 @@ export default function Interviews() {
     }
   };
 
-  const handleStartInterview = async (interview: Interview) => {
-    try {
-      await supabase
-        .from('interviews')
-        .update({ status: 'in_progress' })
-        .eq('id', interview.id);
+  // const handleStartInterview = async (interview: Interview) => {
+  //   try {
+  //     await supabase
+  //       .from('interviews')
+  //       .update({ status: 'in_progress' })
+  //       .eq('id', interview.id);
       
-      navigate(`/room/${interview.room_code}`);
-    } catch (error) {
-      console.error('Error starting interview:', error);
-    }
-  };
+  //     navigate(`/room/${interview.room_code}`);
+  //   } catch (error) {
+  //     console.error('Error starting interview:', error);
+  //   }
+  // };
+  const handleStartInterview = async (interview: Interview) => {
+  try {
+    const { error } = await supabase
+      .from('interviews')
+      .update({ status: 'in_progress' })
+      .eq('id', interview.id);
+
+    if (error) throw error;
+
+    // ✅ Always navigate using DB room_code
+    navigate(`/room/${interview.room_code}`);
+
+  } catch (error) {
+    console.error('Error starting interview:', error);
+    toast({
+      title: 'Error',
+      description: 'Failed to start interview.',
+      variant: 'destructive',
+    });
+  }
+};
 
   const handleDeleteInterview = async (id: string) => {
     try {

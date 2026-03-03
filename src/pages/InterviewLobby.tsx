@@ -7,7 +7,7 @@ import { Users, UserCheck, ArrowRight, Copy, Check, Loader2 } from 'lucide-react
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { z } from 'zod';
 
@@ -19,7 +19,15 @@ const feedbackSchema = z.object({
     .max(2000, 'Feedback must be less than 2000 characters')
 });
 export default function InterviewLobby() {
-  const { user, isInterviewer, isCandidate, isAdmin, loading: authLoading } = useAuth();
+  const { user, isInterviewer, isCandidate, isAdmin, loading: authLoading , role} = useAuth();
+  useEffect(() => {
+    console.log("ROLE VALUE:", role);
+  console.log("User id:", user);
+  console.log("isInterviewer:", isInterviewer);
+  console.log("isCandidate:", isCandidate);
+  console.log("isAdmin:", isAdmin);
+  console.log("authLoading:", authLoading);
+}, [user, isInterviewer, isCandidate, isAdmin, authLoading,role]);
   const navigate = useNavigate();
   
   const [interviewCode, setInterviewCode] = useState('');
@@ -31,6 +39,8 @@ export default function InterviewLobby() {
   const [submitting, setSubmitting] = useState(false);
   const [interviewId, setInterviewId] = useState<string | null>(null);
   const [candidateView, setCandidateView] = useState<'input' | 'waiting' | 'inprogress'>('input');
+  const {roomCode} = useParams();
+ 
 
   // Determine user's role from database
   const canInterview = isInterviewer || isAdmin;
@@ -48,135 +58,460 @@ export default function InterviewLobby() {
     }
   }, [authLoading, user, navigate]);
 
-  const startInterview = async () => {
-    if (!user) {
-      toast({ title: 'Please sign in to start an interview', variant: 'destructive' });
-      navigate('/auth');
-      return;
-    }
+  // const startInterview = async () => {
+  //   if (!user) {
+  //     toast({ title: 'Please sign in to start an interview', variant: 'destructive' });
+  //     navigate('/auth');
+  //     return;
+  //   }
 
-    if (!canInterview) {
-      toast({ title: 'Permission Denied', description: 'Only interviewers can start interviews.', variant: 'destructive' });
-      return;
-    }
+  //   if (!canInterview) {
+  //     toast({ title: 'Permission Denied', description: 'Only interviewers can start interviews.', variant: 'destructive' });
+  //     return;
+  //   }
 
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('interviews')
-        .insert({
-          title: 'Quick Interview Session',
-          scheduled_at: new Date().toISOString(),
-          status: 'in_progress',
-          interviewer_id: user.id,
-        })
-        .select('id, room_code')
-        .single();
+  //   setLoading(true);
+  //   try {
+  //     const { data, error } = await supabase
+  //       .from('interviews')
+  //       .insert({
+  //         title: 'Quick Interview Session',
+  //         scheduled_at: new Date().toISOString(),
+  //         status: 'in_progress',
+  //         interviewer_id: user.id,
+  //       })
+  //       .select('id, room_code')
+  //       .single();
 
-      if (error) throw error;
+  //     if (error) throw error;
 
-      setInterviewId(data.id);
-      setGeneratedCode(data.room_code || data.id.slice(0, 8));
-      setCandidateStatus('waiting');
+  //     setInterviewId(data.id);
+  //     setGeneratedCode(data.room_code || data.id.slice(0, 8));
+  //     setCandidateStatus('waiting');
 
-      // Subscribe to real-time updates for candidate joining
-      const channel = supabase
-        .channel(`interview-${data.id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'interviews',
-            filter: `id=eq.${data.id}`,
-          },
-          (payload) => {
-            if (payload.new.candidate_id) {
-              setCandidateStatus('joined');
-              toast({ title: 'Candidate has joined!' });
-            }
-          }
-        )
-        .subscribe();
+  //     // Subscribe to real-time updates for candidate joining
+  //     const channel = supabase
+  //       .channel(`interview-${data.id}`)
+  //       .on(
+  //         'postgres_changes',
+  //         {
+  //           event: 'UPDATE',
+  //           schema: 'public',
+  //           table: 'interviews',
+  //           filter: `id=eq.${data.id}`,
+  //         },
+  //         (payload) => {
+  //           if (payload.new.candidate_id) {
+  //             setCandidateStatus('joined');
+  //             toast({ title: 'Candidate has joined!' });
+  //           }
+  //         }
+  //       )
+  //       .subscribe();
 
-      toast({ title: 'Interview started!', description: 'Share the code with your candidate.' });
-    } catch (error) {
-      console.error('Error starting interview:', error);
-      toast({ title: 'Error', description: 'Failed to start interview.', variant: 'destructive' });
-    } finally {
-      setLoading(false);
-    }
+  //     toast({ title: 'Interview started!', description: 'Share the code with your candidate.' });
+  //   } catch (error) {
+  //     console.error('Error starting interview:', error);
+  //     toast({ title: 'Error', description: 'Failed to start interview.', variant: 'destructive' });
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+  // Function to generate a random 6-character room code
+const generateRoomCode = () => Math.random().toString(36).substring(2, 8).toUpperCase();
+
+// const startInterview = async () => {
+//   if (!user) {
+//     toast({ title: 'Please sign in to start an interview', variant: 'destructive' });
+//     navigate('/auth');
+//     return;
+//   }
+
+//   if (!canInterview) {
+//     toast({ title: 'Permission Denied', description: 'Only interviewers can start interviews.', variant: 'destructive' });
+//     return;
+//   }
+
+//   setLoading(true);
+//   try {
+//     const code = generateRoomCode();
+
+//     const { data, error } = await supabase
+//       .from('interviews')
+//       .insert({
+//         title: 'Quick Interview Session',
+//         scheduled_at: new Date().toISOString(),
+//         status: 'in_progress',
+//         interviewer_id: user.id,
+//         room_code: code, // insert code into DB
+//       })
+//       .select('id, room_code')
+//       .single();
+
+//     if (error) throw error;
+
+//     setInterviewId(data.id);
+//     setGeneratedCode(data.room_code); // DB now has it too
+//     setCandidateStatus('waiting');
+
+//     // Subscribe to real-time updates for candidate joining
+//     // inside startInterview()
+// const channel = supabase
+//   .channel(`interview-${data.id}`)
+//   .on(
+//     'postgres_changes',
+//     {
+//       event: 'UPDATE',
+//       schema: 'public',
+//       table: 'interviews',
+//       filter: `id=eq.${data.id}`,
+//     },
+//     (payload) => {
+//       console.log('Realtime update:', payload.new);
+//       if (payload.new.candidate_id) {
+//         setCandidateStatus('joined');
+//         toast({ title: 'Candidate has joined!' });
+//       }
+//       // Optional: if interview gets completed
+//       if (payload.new.status === 'completed') {
+//         toast({ title: 'Interview completed' });
+//       }
+//     }
+//   )
+//   .subscribe();
+
+//     toast({ title: 'Interview started!', description: 'Share the code with your candidate.' });
+//   } catch (error) {
+//     console.error('Error starting interview:', error);
+//     toast({ title: 'Error', description: 'Failed to start interview.', variant: 'destructive' });
+//   } finally {
+//     setLoading(false);
+//   }
+// };
+//   const joinInterview = async () => {
+//     if (!user) {
+//       toast({ title: 'Please sign in to join an interview', variant: 'destructive' });
+//       navigate('/auth');
+//       return;
+//     }
+
+//     if (!interviewCode.trim()) {
+//       toast({ title: 'Please enter an interview code', variant: 'destructive' });
+//       return;
+//     }
+
+//     setLoading(true);
+//     try {
+//       // Find interview by room_code
+//       const { data: interview, error } = await supabase
+//         .from('interviews')
+//         .select('id, status')
+//         .or(`room_code.eq.${interviewCode.trim()},id.ilike.${interviewCode.trim()}%`)
+//         .single();
+
+        
+
+//       if (error || !interview) {
+//         toast({ title: 'Interview not found', description: 'Please check the code and try again.', variant: 'destructive' });
+//         return;
+//       }
+
+//       setInterviewId(interview.id);
+
+//       // if (interview.status === 'scheduled') {
+//       //   setCandidateView('waiting');
+//       // } else if (interview.status === 'in_progress') {
+//       //   setCandidateView('inprogress');
+//       //   // Mark candidate as joined using actual user ID
+//       //   await supabase
+//       //     .from('interviews')
+//       //     .update({ candidate_id: user.id })
+//       //     .eq('id', interview.id);
+//       // }
+
+//       // Subscribe to status changes
+      
+//       // Always update candidate_id when a candidate joins
+// await supabase
+//   .from('interviews')
+//   .update({ candidate_id: user.id })
+//   .eq('id', interview.id);
+
+// // Set view based on interview status
+// if (interview.status === 'scheduled') {
+//   setCandidateView('waiting');
+// } else {
+//   setCandidateView('inprogress');
+// }
+      
+//       const channel = supabase
+//         .channel(`candidate-interview-${interview.id}`)
+//         .on(
+//           'postgres_changes',
+//           {
+//             event: 'UPDATE',
+//             schema: 'public',
+//             table: 'interviews',
+//             filter: `id=eq.${interview.id}`,
+//           },
+//           (payload) => {
+//             if (payload.new.status === 'in_progress') {
+//               setCandidateView('inprogress');
+//             } else if (payload.new.status === 'completed') {
+//               toast({ title: 'Interview completed', description: 'Thank you for participating!' });
+//             }
+//           }
+//         )
+//         .subscribe();
+
+//     } catch (error) {
+//       console.error('Error joining interview:', error);
+//       toast({ title: 'Error', description: 'Failed to join interview.', variant: 'destructive' });
+//     } finally {
+//       setLoading(false);
+//     }
+//   };
+
+const startInterview = async () => {
+  if (!user) {
+    toast({ title: 'Please sign in to start an interview', variant: 'destructive' });
+    navigate('/auth');
+    return;
+  }
+
+  if (!canInterview) {
+    toast({
+      title: 'Permission Denied',
+      description: 'Only interviewers can start interviews.',
+      variant: 'destructive',
+    });
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const code = generateRoomCode();
+
+    const { data, error } = await supabase
+      .from('interviews')
+      .insert({
+        title: 'Quick Interview Session',
+        scheduled_at: new Date().toISOString(),
+        status: 'in_progress',
+        interviewer_id: user.id,
+        room_code: code,
+      })
+      .select('id, room_code')
+      .single();
+
+    if (error) throw error;
+
+    setInterviewId(data.id);
+    setGeneratedCode(data.room_code);
+    setCandidateStatus('waiting');
+
+    toast({
+      title: 'Interview started!',
+      description: 'Share the code with your candidate.',
+    });
+
+  } catch (error) {
+    console.error('Error starting interview:', error);
+    toast({
+      title: 'Error',
+      description: 'Failed to start interview.',
+      variant: 'destructive',
+    });
+  } finally {
+    setLoading(false);
+  }
+};
+useEffect(() => {
+  if (!interviewId) return;
+
+  const channel = supabase
+    .channel(`interview-${interviewId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'interviews',
+        filter: `id=eq.${interviewId}`,
+      },
+      (payload) => {
+
+        if (payload.new.candidate_id !== null) {
+  setCandidateStatus('joined');
+  toast({ title: 'Candidate has joined!' });
+
+  // 🔥 IMPORTANT: clear dashboard state
+  setGeneratedCode('');
+  setCandidateStatus(null);
+
+  navigate(`/room/${payload.new.room_code}`);
+}
+
+        if (payload.new.status === 'completed') {
+          toast({ title: 'Interview completed' });
+        }
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
   };
 
-  const joinInterview = async () => {
-    if (!user) {
-      toast({ title: 'Please sign in to join an interview', variant: 'destructive' });
-      navigate('/auth');
+}, [interviewId, navigate]);
+// const joinInterview = async () => {
+//   if (!user) {
+//     toast({ title: 'Please sign in to join an interview', variant: 'destructive' });
+//     navigate('/auth');
+//     return;
+//   }
+
+//   if (!interviewCode.trim()) {
+//     toast({ title: 'Please enter an interview code', variant: 'destructive' });
+//     return;
+//   }
+
+//   setLoading(true);
+//   try {
+//     // 1️⃣ Find interview by room_code
+//     const { data: interview, error: fetchError } = await supabase
+//       .from('interviews')
+//       .select('id, status, candidate_id')
+//       .eq('room_code', interviewCode.trim())
+//       .single();
+
+//     if (fetchError || !interview) {
+//       toast({ title: 'Interview not found', description: 'Please check the code and try again.', variant: 'destructive' });
+//       return;
+//     }
+
+//     setInterviewId(interview.id);
+
+//     // 2️⃣ Update candidate_id ONLY if it is not already taken
+//     if (!interview.candidate_id) {
+//       const { data: updatedInterview, error: updateError } = await supabase
+//         .from('interviews')
+//         .update({ candidate_id: user.id })
+//         .eq('id', interview.id)
+//         .select(); // return updated row
+
+//       if (updateError) {
+//         console.error('Failed to update candidate_id:', updateError);
+//         toast({ title: 'Error', description: 'Could not mark you as joined.', variant: 'destructive' });
+//         return;
+//       } else {
+//         console.log('Candidate joined successfully:', updatedInterview);
+//       }
+//     }
+
+//     // 3️⃣ Set candidate view based on interview status
+//     if (interview.status === 'scheduled') {
+//       setCandidateView('waiting');
+//     } else {
+//       setCandidateView('inprogress');
+//     }
+
+//     // 4️⃣ Subscribe to interview status updates
+//     const channel = supabase
+//       .channel(`candidate-interview-${interview.id}`)
+//       .on(
+//         'postgres_changes',
+//         {
+//           event: 'UPDATE',
+//           schema: 'public',
+//           table: 'interviews',
+//           filter: `id=eq.${interview.id}`,
+//         },
+//         (payload) => {
+//           if (payload.new.status === 'in_progress') {
+//             setCandidateView('inprogress');
+//           } else if (payload.new.status === 'completed') {
+//             toast({ title: 'Interview completed', description: 'Thank you for participating!' });
+//           }
+//         }
+//       )
+//       .subscribe();
+
+//     toast({ title: 'Successfully joined the interview!' });
+//   } catch (error) {
+//     console.error('Error joining interview:', error);
+//     toast({ title: 'Error', description: 'Failed to join interview.', variant: 'destructive' });
+//   } finally {
+//     setLoading(false);
+//   }
+// };
+ const joinInterview = async () => {
+  if (!user) {
+    toast({ title: 'Please sign in to join an interview', variant: 'destructive' });
+    navigate('/auth');
+    return;
+  }
+
+  if (!interviewCode.trim()) {
+    toast({ title: 'Please enter an interview code', variant: 'destructive' });
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const { data: interview, error: fetchError } = await supabase
+      .from('interviews')
+      .select('id, status, candidate_id, room_code')
+      .eq('room_code', interviewCode.trim())
+      .single();
+
+    if (fetchError || !interview) {
+      toast({
+        title: 'Interview not found',
+        description: 'Please check the code and try again.',
+        variant: 'destructive',
+      });
       return;
     }
 
-    if (!interviewCode.trim()) {
-      toast({ title: 'Please enter an interview code', variant: 'destructive' });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Find interview by room_code
-      const { data: interview, error } = await supabase
+    // Update candidate_id if empty
+    if (!interview.candidate_id) {
+      const { error: updateError } = await supabase
         .from('interviews')
-        .select('id, status')
-        .or(`room_code.eq.${interviewCode.trim()},id.ilike.${interviewCode.trim()}%`)
-        .single();
+        .update({ candidate_id: user.id })
+        .eq('id', interview.id);
 
-      if (error || !interview) {
-        toast({ title: 'Interview not found', description: 'Please check the code and try again.', variant: 'destructive' });
+      if (updateError) {
+        console.error(updateError);
+        toast({
+          title: 'Error',
+          description: 'Could not mark you as joined.',
+          variant: 'destructive',
+        });
         return;
       }
-
-      setInterviewId(interview.id);
-
-      if (interview.status === 'scheduled') {
-        setCandidateView('waiting');
-      } else if (interview.status === 'in_progress') {
-        setCandidateView('inprogress');
-        // Mark candidate as joined using actual user ID
-        await supabase
-          .from('interviews')
-          .update({ candidate_id: user.id })
-          .eq('id', interview.id);
-      }
-
-      // Subscribe to status changes
-      const channel = supabase
-        .channel(`candidate-interview-${interview.id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'interviews',
-            filter: `id=eq.${interview.id}`,
-          },
-          (payload) => {
-            if (payload.new.status === 'in_progress') {
-              setCandidateView('inprogress');
-            } else if (payload.new.status === 'completed') {
-              toast({ title: 'Interview completed', description: 'Thank you for participating!' });
-            }
-          }
-        )
-        .subscribe();
-
-    } catch (error) {
-      console.error('Error joining interview:', error);
-      toast({ title: 'Error', description: 'Failed to join interview.', variant: 'destructive' });
-    } finally {
-      setLoading(false);
     }
-  };
 
-  const submitReview = async () => {
+    toast({ title: 'Successfully joined the interview!' });
+
+    // 🚀 Candidate enters room immediately
+    navigate(`/room/${interview.room_code}`);
+
+  } catch (error) {
+    console.error('Error joining interview:', error);
+    toast({
+      title: 'Error',
+      description: 'Failed to join interview.',
+      variant: 'destructive',
+    });
+  } finally {
+    setLoading(false);
+  }
+};
+const submitReview = async () => {
     if (!user) {
       toast({ title: 'Please sign in to submit a review', variant: 'destructive' });
       navigate('/auth');

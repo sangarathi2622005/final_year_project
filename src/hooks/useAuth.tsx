@@ -97,21 +97,69 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error as Error | null };
   };
 
-  const signUp = async (email: string, password: string, fullName?: string, role?: 'interviewer' | 'candidate') => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/`,
-        data: {
+  // const signUp = async (email: string, password: string, fullName?: string, role?: 'interviewer' | 'candidate') => {
+  //   const { error } = await supabase.auth.signUp({
+  //     email,
+  //     password,
+  //     options: {
+  //       emailRedirectTo: `${window.location.origin}/`,
+  //       data: {
+  //         full_name: fullName,
+  //         role: role || 'candidate',
+  //       },
+  //     },
+  //   });
+  //   return { error: error as Error | null };
+  // };
+
+  const signUp = async (
+  email: string,
+  password: string,
+  fullName?: string,
+  role?: 'interviewer' | 'candidate'
+) => {
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+  });
+
+  if (error) {
+    return { error: error as Error };
+    console.log(error);
+  }
+
+  if (data.user) {
+    // Insert into profiles table
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .insert([
+        {
+          id: data.user.id,
           full_name: fullName,
+        },
+      ]);
+
+    if (profileError) {
+      return { error: profileError as Error };
+    }
+
+    // Insert into user_roles table
+    const { error: roleError } = await supabase
+      .from('user_roles')
+      .insert([
+        {
+          user_id: data.user.id,
           role: role || 'candidate',
         },
-      },
-    });
-    return { error: error as Error | null };
-  };
+      ]);
 
+    if (roleError) {
+      return { error: roleError as Error };
+    }
+  }
+
+  return { error: null };
+};
   const signOut = async () => {
     // Clear local state first to ensure UI updates even if signOut fails
     setUser(null);

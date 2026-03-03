@@ -59,40 +59,102 @@ export default function InterviewRoom() {
     };
   }, [interview?.status]);
 
+  // const fetchInterview = async () => {
+  //   try {
+
+  //     const { data, error: fetchError } = await supabase
+  //       .from('interviews')
+  //       .select('*')
+  //       .eq('room_code', roomCode)
+  //       .single();
+
+        
+
+  //     if (fetchError) throw fetchError;
+      
+  //     if (!data) {
+  //       setError('Interview not found');
+  //       return;
+  //     }
+
+  //     setInterview(data as Interview);
+      
+  //     // Start interview if not already started
+  //     if (data.status === 'scheduled') {
+  //       await supabase
+  //         .from('interviews')
+  //         .update({ status: 'in_progress' })
+  //         .eq('id', data.id);
+        
+  //       setInterview({ ...data, status: 'in_progress' } as Interview);
+  //     }
+  //   } catch (err) {
+  //     console.error('Error fetching interview:', err);
+  //     setError('Failed to load interview');
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
   const fetchInterview = async () => {
-    try {
-      const { data, error: fetchError } = await supabase
+  try {
+    console.log("🚀 Fetching interview for room:", roomCode);
+
+    const { data, error: fetchError } = await supabase
+      .from('interviews')
+      .select('*')
+      .eq('room_code', roomCode)
+      .single();
+
+    console.log("📦 Raw data from DB:", data);
+    console.log("❌ Fetch error:", fetchError);
+
+    if (fetchError) throw fetchError;
+
+    if (!data) {
+      console.log("⚠️ No interview found");
+      setError('Interview not found');
+      return;
+    }
+
+    console.log("✅ Interview found:");
+    console.log("   ID:", data.id);
+    console.log("   Status:", data.status);
+    console.log("   Candidate ID:", data.candidate_id);
+
+    setInterview(data as Interview);
+
+    // 🔥 AUTO START LOGIC
+    if (data.status === 'scheduled') {
+      console.log("🔄 Status is 'scheduled' → updating to 'in_progress'");
+
+      const { data: updateData, error: updateError } = await supabase
         .from('interviews')
-        .select('*')
-        .eq('room_code', roomCode)
+        .update({ status: 'in_progress' })
+        .eq('id', data.id)
+        .select()
         .single();
 
-      if (fetchError) throw fetchError;
-      
-      if (!data) {
-        setError('Interview not found');
-        return;
-      }
+      console.log("📤 Update response:", updateData);
+      console.log("❌ Update error:", updateError);
 
-      setInterview(data as Interview);
-      
-      // Start interview if not already started
-      if (data.status === 'scheduled') {
-        await supabase
-          .from('interviews')
-          .update({ status: 'in_progress' })
-          .eq('id', data.id);
-        
-        setInterview({ ...data, status: 'in_progress' } as Interview);
-      }
-    } catch (err) {
-      console.error('Error fetching interview:', err);
-      setError('Failed to load interview');
-    } finally {
-      setLoading(false);
+      if (updateError) throw updateError;
+
+      console.log("🧪 After update:");
+      console.log("   Status:", updateData.status);
+      console.log("   Candidate ID:", updateData.candidate_id);
+
+      setInterview(updateData as Interview);
     }
-  };
 
+  } catch (err) {
+    console.error("💥 Error fetching interview:", err);
+    setError('Failed to load interview');
+  } finally {
+    setLoading(false);
+    console.log("🏁 Fetch interview completed");
+  }
+};
   const handleEndInterview = async () => {
     if (!interview) return;
 
