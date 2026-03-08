@@ -1,19 +1,19 @@
-import { useState, useRef, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { 
-  Video, 
-  VideoOff, 
-  Mic, 
-  MicOff, 
-  Monitor, 
+import { useState, useRef, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Video,
+  VideoOff,
+  Mic,
+  MicOff,
+  Monitor,
   MonitorOff,
   Phone,
   Maximize2,
-  Users,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { toast } from '@/hooks/use-toast';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+  Circle,
+  Square,
+} from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface VideoCallProps {
   roomCode: string;
@@ -24,289 +24,270 @@ export function VideoCall({ roomCode, onLeave }: VideoCallProps) {
   const [isVideoOn, setIsVideoOn] = useState(false);
   const [isAudioOn, setIsAudioOn] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [stream, setStream] = useState<MediaStream | null>(null);
-  const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
-  
+  const [isRecording, setIsRecording] = useState(false);
+
+  const streamRef = useRef<MediaStream | null>(null);
+  const screenStreamRef = useRef<MediaStream | null>(null);
+
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const screenVideoRef = useRef<HTMLVideoElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
+
+  /* ---------------- Attach Camera Stream Safely ---------------- */
+
+  useEffect(() => {
+    if (localVideoRef.current && streamRef.current) {
+      localVideoRef.current.srcObject = streamRef.current;
+      localVideoRef.current.play().catch(() => {});
+    }
+  }, [isVideoOn]);
+
+  /* ---------------- Cleanup ---------------- */
 
   useEffect(() => {
     return () => {
-      // Cleanup streams on unmount
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-      if (screenStream) {
-        screenStream.getTracks().forEach(track => track.stop());
-      }
+      stopStream(streamRef.current);
+      stopStream(screenStreamRef.current);
     };
-  }, [stream, screenStream]);
+  }, []);
+
+  const stopStream = (stream: MediaStream | null) => {
+    stream?.getTracks().forEach((track) => track.stop());
+  };
+
+  /* ================= CAMERA ================= */
 
   const toggleVideo = async () => {
     try {
       if (isVideoOn) {
-        // Turn off video
-        if (stream) {
-          stream.getVideoTracks().forEach(track => {
-            track.stop();
-            stream.removeTrack(track);
-          });
-        }
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = null;
-        }
+        stopStream(streamRef.current);
+        streamRef.current = null;
         setIsVideoOn(false);
-      } else {
-        // Turn on video
-        const mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 1280, height: 720 },
-          audio: isAudioOn,
-        });
-        
-        setStream(mediaStream);
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = mediaStream;
-        }
-        setIsVideoOn(true);
-        if (!isAudioOn && mediaStream.getAudioTracks().length > 0) {
-          setIsAudioOn(true);
-        }
+        return;
       }
-    } catch (error) {
-      console.error('Error toggling video:', error);
+
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: isAudioOn,
+      });
+
+      streamRef.current = mediaStream;
+      setIsVideoOn(true);
+
+      if (mediaStream.getAudioTracks().length > 0) {
+        setIsAudioOn(true);
+      }
+    } catch (err) {
+      console.error(err);
       toast({
-        title: 'Camera Error',
-        description: 'Unable to access camera. Please check permissions.',
-        variant: 'destructive',
+        title: "Camera Error",
+        description: "Please allow camera permission.",
+        variant: "destructive",
       });
     }
   };
 
+  /* ================= AUDIO ================= */
+
   const toggleAudio = async () => {
     try {
+      if (!streamRef.current) {
+        const audioStream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
+        streamRef.current = audioStream;
+      }
+
+      const audioTracks = streamRef.current.getAudioTracks();
+
       if (isAudioOn) {
-        if (stream) {
-          stream.getAudioTracks().forEach(track => {
-            track.enabled = false;
-          });
-        }
+        audioTracks.forEach((track) => (track.enabled = false));
         setIsAudioOn(false);
       } else {
-        if (stream && stream.getAudioTracks().length > 0) {
-          stream.getAudioTracks().forEach(track => {
-            track.enabled = true;
-          });
-        } else {
-          const mediaStream = await navigator.mediaDevices.getUserMedia({
+        if (audioTracks.length === 0) {
+          const audioStream = await navigator.mediaDevices.getUserMedia({
             audio: true,
           });
-          if (stream) {
-            mediaStream.getAudioTracks().forEach(track => {
-              stream.addTrack(track);
-            });
-          } else {
-            setStream(mediaStream);
-          }
+          audioStream
+            .getAudioTracks()
+            .forEach((track) => streamRef.current?.addTrack(track));
+        } else {
+          audioTracks.forEach((track) => (track.enabled = true));
         }
         setIsAudioOn(true);
       }
-    } catch (error) {
-      console.error('Error toggling audio:', error);
+    } catch {
       toast({
-        title: 'Microphone Error',
-        description: 'Unable to access microphone. Please check permissions.',
-        variant: 'destructive',
+        title: "Microphone Error",
+        description: "Please allow microphone permission.",
+        variant: "destructive",
       });
     }
   };
+
+  /* ================= SCREEN SHARE ================= */
 
   const toggleScreenShare = async () => {
     try {
       if (isScreenSharing) {
-        if (screenStream) {
-          screenStream.getTracks().forEach(track => track.stop());
-          setScreenStream(null);
-        }
-        if (screenVideoRef.current) {
-          screenVideoRef.current.srcObject = null;
-        }
+        stopStream(screenStreamRef.current);
+        screenStreamRef.current = null;
         setIsScreenSharing(false);
-      } else {
-        const displayStream = await navigator.mediaDevices.getDisplayMedia({
-          video: true,
-          audio: true,
-        });
-        
-        setScreenStream(displayStream);
-        if (screenVideoRef.current) {
-          screenVideoRef.current.srcObject = displayStream;
-        }
-        setIsScreenSharing(true);
-
-        // Handle when user stops sharing via browser UI
-        displayStream.getVideoTracks()[0].onended = () => {
-          setIsScreenSharing(false);
-          setScreenStream(null);
-          if (screenVideoRef.current) {
-            screenVideoRef.current.srcObject = null;
-          }
-        };
+        return;
       }
-    } catch (error) {
-      console.error('Error toggling screen share:', error);
+
+      const displayStream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: true,
+      });
+
+      screenStreamRef.current = displayStream;
+
+      if (screenVideoRef.current) {
+        screenVideoRef.current.srcObject = displayStream;
+        screenVideoRef.current.play().catch(() => {});
+      }
+
+      displayStream.getVideoTracks()[0].onended = () => {
+        stopStream(displayStream);
+        screenStreamRef.current = null;
+        setIsScreenSharing(false);
+      };
+
+      setIsScreenSharing(true);
+    } catch {
       toast({
-        title: 'Screen Share Error',
-        description: 'Unable to share screen. Please try again.',
-        variant: 'destructive',
+        title: "Screen Share Error",
+        description: "Unable to share screen.",
+        variant: "destructive",
       });
     }
   };
 
-  const toggleFullscreen = async () => {
-    if (!containerRef.current) return;
-    
-    try {
-      if (!isFullscreen) {
-        await containerRef.current.requestFullscreen();
-        setIsFullscreen(true);
-      } else {
-        await document.exitFullscreen();
-        setIsFullscreen(false);
-      }
-    } catch (error) {
-      console.error('Fullscreen error:', error);
+  /* ================= RECORDING ================= */
+
+  const startRecording = () => {
+    const activeStream = screenStreamRef.current || streamRef.current;
+
+    if (!activeStream) {
+      toast({
+        title: "Recording Error",
+        description: "Turn on camera or screen share first.",
+        variant: "destructive",
+      });
+      return;
     }
+
+    recordedChunksRef.current = [];
+
+    const recorder = new MediaRecorder(activeStream, {
+      mimeType: "video/webm",
+    });
+
+    recorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        recordedChunksRef.current.push(event.data);
+      }
+    };
+
+    recorder.onstop = () => {
+      const blob = new Blob(recordedChunksRef.current, {
+        type: "video/webm",
+      });
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `recording-${roomCode}.webm`;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    recorder.start();
+    mediaRecorderRef.current = recorder;
+    setIsRecording(true);
   };
 
+  const stopRecording = () => {
+    mediaRecorderRef.current?.stop();
+    setIsRecording(false);
+  };
+
+ const toggleRecording = () => {
+  if (isRecording) {
+    stopRecording();
+  } else {
+    startRecording();
+  }
+};
+  /* ================= LEAVE ================= */
+
   const handleLeave = () => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-    }
-    if (screenStream) {
-      screenStream.getTracks().forEach(track => track.stop());
-    }
+    stopStream(streamRef.current);
+    stopStream(screenStreamRef.current);
+    mediaRecorderRef.current?.stop();
     onLeave?.();
   };
 
   return (
-    <div 
-      ref={containerRef}
-      className="h-full flex flex-col bg-card rounded-xl overflow-hidden"
-    >
-      {/* Video Grid */}
-      <div className="flex-1 p-4 grid grid-cols-1 gap-4 min-h-0">
-        {/* Screen Share (if active) */}
+    <div className="h-full flex flex-col bg-card rounded-xl overflow-hidden">
+      <div className="flex-1 p-4 grid grid-cols-1 gap-4 relative">
         {isScreenSharing && (
-          <div className="video-container">
-            <video
-              ref={screenVideoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full h-full object-contain bg-black"
-            />
-            <div className="absolute top-4 left-4 bg-black/60 px-3 py-1 rounded-full text-sm text-white flex items-center gap-2">
-              <Monitor className="h-4 w-4" />
-              Screen Share
-            </div>
-          </div>
+          <video
+            ref={screenVideoRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full h-full object-contain bg-black rounded-lg"
+          />
         )}
 
-        {/* Local Video */}
-        <div className={cn(
-          "video-container",
-          isScreenSharing && "absolute bottom-20 right-8 w-48 h-36 rounded-lg shadow-xl z-10"
-        )}>
+        <div className="w-full h-full bg-black rounded-lg flex items-center justify-center">
           {isVideoOn ? (
             <video
               ref={localVideoRef}
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover rounded-lg"
             />
           ) : (
-            <div className="video-overlay">
-              <div className="text-center">
-                <Avatar className="w-20 h-20 mx-auto mb-3">
-                  <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
-                    You
-                  </AvatarFallback>
-                </Avatar>
-                <p className="text-white/80 text-sm">Camera off</p>
-              </div>
+            <div className="text-center text-white">
+              <Avatar className="w-20 h-20 mx-auto mb-3">
+                <AvatarFallback>You</AvatarFallback>
+              </Avatar>
+              <p>Camera off</p>
             </div>
           )}
-          <div className="absolute bottom-4 left-4 bg-black/60 px-3 py-1 rounded-full text-sm text-white">
-            You {!isAudioOn && '(muted)'}
-          </div>
         </div>
-
-        {/* Remote Participant Placeholder */}
-        {!isScreenSharing && (
-          <div className="video-container">
-            <div className="video-overlay">
-              <div className="text-center">
-                <div className="w-20 h-20 mx-auto mb-3 rounded-full bg-muted flex items-center justify-center">
-                  <Users className="w-10 h-10 text-muted-foreground" />
-                </div>
-                <p className="text-white/80 mb-2">Waiting for others to join...</p>
-                <p className="text-white/60 text-sm">
-                  Room code: <span className="font-mono font-semibold">{roomCode}</span>
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Controls */}
-      <div className="px-4 py-3 bg-card border-t border-border flex items-center justify-center gap-3">
+      {/* CONTROLS */}
+      <div className="px-4 py-3 flex items-center justify-center gap-3 flex-wrap border-t">
+        <Button onClick={toggleAudio} className="rounded-full">
+          {isAudioOn ? <Mic /> : <MicOff />}
+        </Button>
+
+        <Button onClick={toggleVideo} className="rounded-full">
+          {isVideoOn ? <Video /> : <VideoOff />}
+        </Button>
+
+        <Button onClick={toggleScreenShare} className="rounded-full">
+          {isScreenSharing ? <MonitorOff /> : <Monitor />}
+        </Button>
+
         <Button
-          variant={isAudioOn ? 'secondary' : 'destructive'}
-          size="icon-lg"
-          onClick={toggleAudio}
+          onClick={toggleRecording}
+          variant={isRecording ? "destructive" : "secondary"}
           className="rounded-full"
         >
-          {isAudioOn ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
+          {isRecording ? <Square /> : <Circle />}
         </Button>
-        
-        <Button
-          variant={isVideoOn ? 'secondary' : 'destructive'}
-          size="icon-lg"
-          onClick={toggleVideo}
-          className="rounded-full"
-        >
-          {isVideoOn ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
-        </Button>
-        
-        <Button
-          variant={isScreenSharing ? 'success' : 'secondary'}
-          size="icon-lg"
-          onClick={toggleScreenShare}
-          className="rounded-full"
-        >
-          {isScreenSharing ? <MonitorOff className="h-5 w-5" /> : <Monitor className="h-5 w-5" />}
-        </Button>
-        
-        <Button
-          variant="secondary"
-          size="icon-lg"
-          onClick={toggleFullscreen}
-          className="rounded-full"
-        >
-          <Maximize2 className="h-5 w-5" />
-        </Button>
-        
-        <Button
-          variant="video"
-          size="icon-lg"
-          onClick={handleLeave}
-          className="rounded-full ml-4"
-        >
-          <Phone className="h-5 w-5 rotate-[135deg]" />
+
+        <Button onClick={handleLeave} variant="destructive" className="rounded-full">
+          <Phone className="rotate-[135deg]" />
         </Button>
       </div>
     </div>

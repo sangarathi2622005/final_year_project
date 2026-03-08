@@ -62,7 +62,7 @@ export function AppSidebar() {
             <div className="w-8 h-8 rounded-lg btn-gradient flex items-center justify-center">
               <Code2 className="h-5 w-5 text-white" />
             </div>
-            <span className="font-bold text-sidebar-foreground">InterviewHub</span>
+            <span className="font-bold text-sidebar-foreground">interviewFlow</span>
           </div>
         )}
         <Button

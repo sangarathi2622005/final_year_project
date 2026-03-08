@@ -105,7 +105,7 @@ export default function Auth() {
     } else {
       toast({
         title: 'Account created!',
-        description: `Welcome to InterviewHub as ${selectedRole === 'interviewer' ? 'an Interviewer' : 'a Candidate'}.`,
+        description: `Welcome to interviewFlow as ${selectedRole === 'interviewer' ? 'an Interviewer' : 'a Candidate'}.`,
       });
       navigate('/dashboard');
     }
@@ -128,7 +128,7 @@ export default function Auth() {
             <div className="w-10 h-10 rounded-lg btn-gradient flex items-center justify-center">
               <Code2 className="h-6 w-6 text-white" />
             </div>
-            <span className="text-2xl font-bold text-sidebar-foreground">InterviewHub</span>
+            <span className="text-2xl font-bold text-sidebar-foreground">interviewFlow</span>
           </div>
           
           <h1 className="text-4xl font-bold text-sidebar-foreground mb-6 leading-tight">
@@ -166,7 +166,7 @@ export default function Auth() {
         </div>
 
         <p className="text-sidebar-foreground/50 text-sm">
-          © 2024 InterviewHub. Built with care for a better interview experience.
+          © 2024 interviewFlow. Built with care for a better interview experience.
         </p>
       </div>
 
@@ -177,7 +177,7 @@ export default function Auth() {
             <div className="w-10 h-10 rounded-lg btn-gradient flex items-center justify-center">
               <Code2 className="h-6 w-6 text-white" />
             </div>
-            <span className="text-2xl font-bold">InterviewHub</span>
+            <span className="text-2xl font-bold">interviewFlow</span>
           </div>
 
           <Card className="glass-card">

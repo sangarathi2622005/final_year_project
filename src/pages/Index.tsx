@@ -77,7 +77,7 @@ export default function Index() {
             <div className="w-10 h-10 rounded-lg btn-gradient flex items-center justify-center">
               <Code2 className="h-6 w-6 text-white" />
             </div>
-            <span className="text-xl font-bold">InterviewHub</span>
+            <span className="text-xl font-bold">interviewFlow</span>
           </div>
           <Button variant="gradient" onClick={() => navigate('/auth')}>
             Get Started
@@ -182,7 +182,7 @@ export default function Index() {
             Ready to transform your interview process?
           </h2>
           <p className="text-lg text-muted-foreground mb-10 max-w-2xl mx-auto">
-            Join thousands of companies that use InterviewHub to find and hire 
+            Join thousands of companies that use interviewFlow to find and hire 
             the best technical talent.
           </p>
           <Button 
@@ -204,10 +204,10 @@ export default function Index() {
             <div className="w-8 h-8 rounded-lg btn-gradient flex items-center justify-center">
               <Code2 className="h-5 w-5 text-white" />
             </div>
-            <span className="font-semibold">InterviewHub</span>
+            <span className="font-semibold">interviewFlow</span>
           </div>
           <p className="text-sm text-muted-foreground">
-            © 2024 InterviewHub. Built with care for a better interview experience.
+            © 2024 interviewFlow. Built with care for a better interview experience.
           </p>
         </div>
       </footer>
