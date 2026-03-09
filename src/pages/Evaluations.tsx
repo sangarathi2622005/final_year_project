@@ -168,14 +168,14 @@ export default function Evaluations() {
                       )}
                     </div>
 
-                    <Button
+                    {/* <Button
                       variant="outline"
                       size="sm"
                       onClick={() => navigate(`/interviews/${evaluation.interview_id}`)}
                     >
                       <Eye className="h-4 w-4 mr-2" />
                       View Details
-                    </Button>
+                    </Button> */}
                   </div>
                 </CardContent>
               </Card>
